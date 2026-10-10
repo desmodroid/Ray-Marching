@@ -152,8 +152,8 @@ void main() {
 
             vec3 normal = getNormal(intersectPos, viewDistance/1e5);
 
-            float diffuseTerm = 1.0; // TODO: Exercise 7
-            float specularTerm = 1.0; // TODO: Exercise 7
+            float diffuseTerm = max(dot(lightVector, normal), 0.0);
+            float specularTerm = pow(max(dot(halfwayVector, normal), 0.0), 50.0);
             float shadowFactor = 1.0; // TODO: Exercise 7
 
             vec3 phong = AMBIENT_TERM + shadowFactor*lightColour*(diffuseTerm + specularTerm);
