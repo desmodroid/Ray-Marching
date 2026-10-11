@@ -6,9 +6,11 @@ layout(local_size_x = 16, local_size_y = 16) in;
 layout(binding = 0, rgba32f) uniform image2D frame;
 
 struct Material {
-
-    float fixMe; // TODO: Exercise 7
-
+    float r;
+    float g;
+    float b;
+    float reflectivity;
+    float specularFactor;
 };
 
 layout(binding = 0, std430) buffer materialData {
@@ -49,6 +51,13 @@ float sphereSDF(vec3 p, vec3 c, float r) {
 	return length(p - c) - r;
 }
 
+// by Inigo quilez (https://iquilezles.org/articles/distfunctions/)
+float boxSDF( vec3 p, vec3 b )
+{
+  vec3 q = abs(p) - b;
+  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
+}
+
 // Combines a number of SDF primitives into a scene
 Hit sceneSDF(vec3 position) {
     Hit closestHit = Hit(INF, 0);
@@ -57,8 +66,8 @@ Hit sceneSDF(vec3 position) {
     distance = sphereSDF(position, vec3(0.0, 1.5, 1.0), 1.0);
     if (distance < closestHit.distance) closestHit = Hit(distance, 0);
 
-    // TODO: Exercise 7
-
+    distance = boxSDF(position, vec3(5.0, 0.5, 5.0)); 
+    if (distance < closestHit.distance) closestHit = Hit(distance, 1);
     return closestHit;
 }
 
@@ -98,12 +107,15 @@ float detectShadow(Ray shadowRay, float lightDistance) {
     Hit hit = Hit(INF, 0);
 	float totalDistance = RAY_STEP;
     float shadowFactor = 1.0;
+    const float k = 10.0;
     
 	for (int i = 0; i < MAX_MARCHES && totalDistance < lightDistance && hit.distance > EPS; i++) {
 		hit = sceneSDF(shadowRay.position + totalDistance*shadowRay.direction);
 
 		//Soft shadows: Could calculate soft shadowing factor here
-        
+        shadowFactor = min(shadowFactor, k * hit.distance / totalDistance);
+
+
 		totalDistance += hit.distance;
 	}
     if (hit.distance <= EPS) shadowFactor = 0.0; // fully occluded
@@ -154,9 +166,17 @@ void main() {
 
             float diffuseTerm = max(dot(lightVector, normal), 0.0);
             float specularTerm = pow(max(dot(halfwayVector, normal), 0.0), 50.0);
-            float shadowFactor = 1.0; // TODO: Exercise 7
 
-            vec3 phong = AMBIENT_TERM + shadowFactor*lightColour*(diffuseTerm + specularTerm);
+            Ray shadowRay = Ray(intersectPos, lightVector);
+
+            float shadowFactor = detectShadow(shadowRay, lightDistance);
+
+            Material m = materials[hit.materialIndex];
+            vec3 materialColour = vec3(m.r, m.g, m.b);
+            float specularFactor = m.specularFactor;
+
+            vec3 phong = materialColour * AMBIENT_TERM +
+             shadowFactor*lightColour*(shadowFactor * materialColour * diffuseTerm + shadowFactor * specularFactor * specularTerm);
 
             colour += netReflectivity * phong;
             
