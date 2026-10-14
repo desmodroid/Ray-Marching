@@ -96,8 +96,8 @@ void init() {
 
     // Initialize material data
     materials = {
-        {glm::vec3(0.6f, 0.0f, 0.0f), 0.6f, 1.0f}, // Material index 0. Red colour, reflective, has strong specular highlight
-        {glm::vec3(0.4f, 0.1f, 1.0f), 0.0f, 0.2f}, // Material index 1. Purple colour, not reflective, weak specular highlight
+        {glm::vec3(0.6f, 0.0f, 0.0f), 0.3f, 1.0f}, // Material index 0.  colour, reflective, has strong specular highlight
+        {glm::vec3(0.0, 0.600f, 1.0f), 0.4f, 0.5f}, // Material index 1. colour, not reflective, weak specular highlight
     };
     
     // Create materials SSBO and load material data into it

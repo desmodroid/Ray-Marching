@@ -30,7 +30,8 @@ const float INTERSECT_JUMP = 1e0; // How far a ray can jump to a nearby surface 
 const float INF = 1e5; // Used to represent out-of-bound distances
 const float MAX_DISTANCE = 200.0; // Essentially the far plane distance
 const float RAY_STEP = 0.01; // Initial ray stepping distance to get secondary rays off surfaces
-const float MIN_REFLECTIVITY = 0.05; // Stop bouncing when net reflectivity drops below this proportion
+const float MIN_REFLECTIVITY = 0.01; // Stop bouncing when net reflectivity drops below this proportion
+const float AO_FACTOR = 1.0; // ambient occlusion
 
 // Lighting constants
 const float AMBIENT_TERM = 0.2;
@@ -66,7 +67,7 @@ Hit sceneSDF(vec3 position) {
     distance = sphereSDF(position, vec3(0.0, 1.5, 1.0), 1.0);
     if (distance < closestHit.distance) closestHit = Hit(distance, 0);
 
-    distance = boxSDF(position, vec3(5.0, 0.5, 5.0)); 
+    distance = boxSDF(position - vec3(0.0, 0.5, 0.0), vec3(5.0, 0.1, 5.0)); 
     if (distance < closestHit.distance) closestHit = Hit(distance, 1);
     return closestHit;
 }
@@ -107,7 +108,7 @@ float detectShadow(Ray shadowRay, float lightDistance) {
     Hit hit = Hit(INF, 0);
 	float totalDistance = RAY_STEP;
     float shadowFactor = 1.0;
-    const float k = 10.0;
+    const float k = 16.0;
     
 	for (int i = 0; i < MAX_MARCHES && totalDistance < lightDistance && hit.distance > EPS; i++) {
 		hit = sceneSDF(shadowRay.position + totalDistance*shadowRay.direction);
@@ -176,14 +177,19 @@ void main() {
             float specularFactor = m.specularFactor;
 
             vec3 phong = materialColour * AMBIENT_TERM +
-             shadowFactor*lightColour*(shadowFactor * materialColour * diffuseTerm + shadowFactor * specularFactor * specularTerm);
+             shadowFactor*lightColour*
+             (materialColour * diffuseTerm 
+             + specularFactor * specularTerm);
 
             colour += netReflectivity * phong;
             
             // Reflections: Could multiply netReflectivity by material reflectivity here instead
-            netReflectivity *= 0.0;
+            netReflectivity *= m.reflectivity;
 
-            // Reflections: Could update ray parameters with reflected ray here if netReflectivity > MIN_REFLECTIVITY
+            if (netReflectivity > MIN_REFLECTIVITY) {
+                vec3 r = reflect(ray.direction, normal);
+                ray = Ray(intersectPos, r);
+            }
         }
     }
 
