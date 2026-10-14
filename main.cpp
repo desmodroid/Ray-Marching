@@ -22,7 +22,7 @@ const int POLL_DELAY = 33; // In milliseconds. Set to 30FPS by default, decrease
 const int WORKGROUP_DIM = 16; // Must match compute shader x and y dimension
 float globalTime = 0.0f; // In seconds
 float cubeAngle = 0.0f;
-const float ROT_SCALE = 0.4f;
+const float ROT_SCALE = 0.05f;
 
 std::unordered_map<std::string, Texture> textures;
 std::vector<Material> materials;
