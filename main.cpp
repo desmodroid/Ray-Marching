@@ -21,6 +21,8 @@ struct Material {
 const int POLL_DELAY = 33; // In milliseconds. Set to 30FPS by default, decrease POLL_DELAY to 17ms if you want ~60FPS (but be extra careful to keep things optimized)
 const int WORKGROUP_DIM = 16; // Must match compute shader x and y dimension
 float globalTime = 0.0f; // In seconds
+float cubeAngle = 0.0f;
+const float ROT_SCALE = 0.4f;
 
 std::unordered_map<std::string, Texture> textures;
 std::vector<Material> materials;
@@ -43,6 +45,7 @@ void raymarchToTexture(ShaderProgram& computeProgram, GLuint texId) {
 	glUniform3fv(computeProgram.getUniformLocation("lightPos"), 1, glm::value_ptr(lightPosition)); 
 
     glUniform1f(computeProgram.getUniformLocation("globalTime"), globalTime);
+    glUniform1f(computeProgram.getUniformLocation("cubeAngle"), cubeAngle);
     // Bind material SSBO to index 0 (binding = 0 in shader)
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, materialSSBO);
 
@@ -130,8 +133,10 @@ void update(int value) {
 	glutTimerFunc(POLL_DELAY, update, 0);
 	glutPostRedisplay();
 
-	if (!window::paused) globalTime += 0.001f * POLL_DELAY;
-
+	if (!window::paused)  {
+        globalTime += 0.001f * POLL_DELAY;
+        cubeAngle += ROT_SCALE * POLL_DELAY;
+    }
 	window::updateUserPosition(POLL_DELAY); // Updates user position and view transform based on keyboard/mouse inputs
 }
 
