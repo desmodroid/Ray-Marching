@@ -46,7 +46,13 @@ struct Ray {
 struct Hit {
     float distance;
     int materialIndex;
+    int materialIndex2;
+    float t;   
 };
+
+Hit newHit(float distance, int materialIndex) {
+    return Hit (distance, materialIndex, materialIndex, 0.0);
+}
 
 // SDF for a sphere with centre c and radius r
 float sphereSDF(vec3 p, vec3 c, float r) {
@@ -113,19 +119,30 @@ mat2 inverseRotMatrix(float angle) {
     return mat2(cosAngle, -sinAngle, sinAngle, cosAngle);
 }
 
-float smooth_min(float a, float b, float k) {
+vec2 smooth_min(float a, float b, float k) {
     float u = k - min(abs(a-b), k);
     float s = u * u / (4*k);
-    return min(a,b) - s;
+    float t = (a < b) ? (2.0*s / k) : (1 - (2.0*s/k));
+    return vec2(min(a,b) - s, t);
+}
+
+vec2 smooth_intersection(float a, float b, float k) {
+    vec2 r = smooth_min(-a, -b, k);
+    return vec2(-r.x, r.y);
+}
+
+vec2 smooth_subtraction(float a, float b, float k) {
+    vec2 r = smooth_min(-a, b, k);
+    return vec2(-r.x, r.y);
 }
 
 // Combines a number of SDF primitives into a scene
 Hit sceneSDF(vec3 position) {
-    Hit closestHit = Hit(INF, 0);
+    Hit closestHit = Hit(INF, 0, 0, 0);
     float distance;
 
     distance = sphereSDF(position, vec3(0.0, 1.5, 1.0), 1.0);
-    if (distance < closestHit.distance) closestHit = Hit(distance, 0);
+    if (distance < closestHit.distance) closestHit = newHit(distance, 0);
 
 
     // CSG COMPOSED OF PRIMS
@@ -136,7 +153,7 @@ Hit sceneSDF(vec3 position) {
         boxSDF(boxPos, vec3(0.5)),
         -sdBoxFrame(boxPos,  vec3(0.6), 0.1)
     );
-    if (distance < closestHit.distance) closestHit = Hit(distance, 2);
+    if (distance < closestHit.distance) closestHit = newHit(distance, 2);
 
 
 
@@ -149,18 +166,18 @@ Hit sceneSDF(vec3 position) {
         boxSDF(stillBox, vec3(0.5)),                  
         sdBoxFrame(cutBox, vec3(0.6), 0.1)        
     );
-    if (distance < closestHit.distance) closestHit = Hit(distance, 2);
+    if (distance < closestHit.distance) closestHit = newHit(distance, 2);
 
 
     // ---------------- octahedron and weird shape thingy --------------------------------
 
     float y = 1.5 * cos(globalTime); 
     float octahedron = sdOctahedron(position - vec3(3.0, 2 + y, 5.0), 0.5);
-    if (octahedron < closestHit.distance) closestHit = Hit(octahedron, 3);
+    if (octahedron < closestHit.distance) closestHit = newHit(octahedron, 3);
 
 
     float plane = boxSDF(position - vec3(0.0, 0.5, 0.0), vec3(10.0, 0.1, 10.0)); 
-    if (plane < closestHit.distance) closestHit = Hit(plane, 1);
+    if (plane < closestHit.distance) closestHit = newHit(plane, 1);
 
     // some weird green thingy
     vec3 idekPos = vec3(3, 1.5, 5.0);
@@ -168,12 +185,19 @@ Hit sceneSDF(vec3 position) {
         sdHexPrism(position - idekPos, vec2(0.5, 0.3)),
         sdCutHollowSphere(position - idekPos, 0.5, 0.2, 0.01)
     );
-    if (greenThingy < closestHit.distance) closestHit = Hit(greenThingy, 2);
+    if (greenThingy < closestHit.distance) closestHit = newHit(greenThingy, 2);
 
-    distance = smooth_min(octahedron, min(greenThingy, plane), 0.3);
+    vec2 blendFloor = smooth_min(octahedron, plane, 0.3);
+    vec2 blendGreen = smooth_min(octahedron, greenThingy, 0.3);
 
-    if (distance < closestHit.distance) closestHit = Hit(distance, 1);
-    
+    vec2 blend = blendFloor;
+    int matOther = 1;                  // floor material
+    if (blendGreen.x < blendPlane.x) {
+        blend = blendGreen;
+        matOther = 2;                  // green thingy material
+    }
+    if (blend.x < closestHit.distance) closestHit = Hit(blend.x, 3, matOther, blend.y);
+
         
     return closestHit;
     }
@@ -195,7 +219,7 @@ vec3 getNormal(vec3 p, float delta) {
 // a SDF that ever over-estimates distances, you may need to reduce MARCH_PROP to avoid stepping inside the surface
 const float MARCH_PROP = 1.0;
 Hit intersection(Ray ray) {
-    Hit hit = Hit(INF, 0);
+    Hit hit = Hit(INF, 0, 0, 0);
     float totalDistance = RAY_STEP;
     int i = 0;
 	for (; i < MAX_MARCHES && totalDistance < MAX_DISTANCE && hit.distance > EPS; i++) {
@@ -211,7 +235,7 @@ Hit intersection(Ray ray) {
 
 // Calculates a shadow factor of 0.0 to 1.0. Only does hard shadows by default
 float detectShadow(Ray shadowRay, float lightDistance) {
-    Hit hit = Hit(INF, 0);
+    Hit hit = Hit(INF, 0, 0, 0);
 	float totalDistance = RAY_STEP;
     float shadowFactor = 1.0;
     const float k = 16.0;
@@ -290,10 +314,12 @@ void main() {
 
             float shadowFactor = detectShadow(shadowRay, lightDistance);
 
-            Material m = materials[hit.materialIndex];
-            vec3 materialColour = vec3(m.r, m.g, m.b);
-            float specularFactor = m.specularFactor;
+            Material m1 = materials[hit.materialIndex];
+            Material m2 = materials[hit.materialIndex2];
 
+            vec3 materialColour  = mix(vec3(m1.r, m1.g, m1.b), vec3(m2.r, m2.g, m2.b), hit.t);
+            float specularFactor = mix(m1.specularFactor, m2.specularFactor, hit.t);
+            float reflectivity   = mix(m1.reflectivity,   m2.reflectivity,   hit.t);
             float ao = (showAO) ? ambient_occlusion(intersectPos, normal) : 1.0;
             
 
@@ -305,7 +331,7 @@ void main() {
             colour += netReflectivity * phong;
             
             // Reflections: Could multiply netReflectivity by material reflectivity here instead
-            netReflectivity *= m.reflectivity;
+            netReflectivity *= reflectivity;
 
             if (netReflectivity > MIN_REFLECTIVITY) {
                 vec3 r = reflect(ray.direction, normal);
