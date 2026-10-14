@@ -86,6 +86,27 @@ float sdOctahedron( vec3 p, float s )
   return length(vec3(q.x,q.y-s+k,q.z-k)); 
 }
 
+// by Inigo quilez (https://iquilezles.org/articles/distfunctions/)
+float sdHexPrism( vec3 p, vec2 h )
+{
+  const vec3 k = vec3(-0.8660254, 0.5, 0.57735);
+  p = abs(p);
+  p.xy -= 2.0*min(dot(k.xy, p.xy), 0.0)*k.xy;
+  vec2 d = vec2(
+       length(p.xy-vec2(clamp(p.x,-k.z*h.x,k.z*h.x), h.x))*sign(p.y-h.x),
+       p.z-h.y );
+  return min(max(d.x,d.y),0.0) + length(max(d,0.0));
+}
+
+// by Inigo quilez (https://iquilezles.org/articles/distfunctions/)
+
+float sdCutHollowSphere( vec3 p, float r, float h, float t )
+{
+  float w = sqrt(r*r-h*h);
+  vec2 q = vec2( length(p.xz), p.y );
+  return ((h*q.x<w*q.y) ? length(q-vec2(w,h)) : 
+                          abs(length(q)-r) ) - t;
+}
 
 // Combines a number of SDF primitives into a scene
 Hit sceneSDF(vec3 position) {
@@ -95,7 +116,7 @@ Hit sceneSDF(vec3 position) {
     distance = sphereSDF(position, vec3(0.0, 1.5, 1.0), 1.0);
     if (distance < closestHit.distance) closestHit = Hit(distance, 0);
 
-    distance = boxSDF(position - vec3(0.0, 0.5, 0.0), vec3(5.0, 0.1, 5.0)); 
+    distance = boxSDF(position - vec3(0.0, 0.5, 0.0), vec3(10.0, 0.1, 10.0)); 
     if (distance < closestHit.distance) closestHit = Hit(distance, 1);
 
     distance = sdBoxFrame(position - vec3(3.0, 1.5, 0.0), vec3(0.5,0.3,0.5), 0.025); 
@@ -104,6 +125,21 @@ Hit sceneSDF(vec3 position) {
     distance = sdOctahedron(position - vec3(-3.0, 1.5, 0.0), 0.5); 
     if (distance < closestHit.distance) closestHit = Hit(distance, 3);
 
+
+    // CSG COMPOSED OF PRIMS
+    vec3 boxPos = vec3(-3, 1.5, 5.0);
+    distance = max(
+        boxSDF(position - boxPos, vec3(0.5)),
+        -sdBoxFrame(position - boxPos,  vec3(0.6), 0.1)
+    );
+    if (distance < closestHit.distance) closestHit = Hit(distance, 2);
+
+    vec3 idekPos = vec3(3, 1.5, 5.0);
+    distance = max(
+        sdHexPrism(position - idekPos, vec2(0.5, 0.3)),
+        sdCutHollowSphere(position - idekPos, 0.5, 0.2, 0.01)
+    );
+    if (distance < closestHit.distance) closestHit = Hit(distance, 3);
 
     return closestHit;
 }
