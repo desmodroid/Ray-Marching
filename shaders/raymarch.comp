@@ -21,6 +21,8 @@ uniform int screenWidth, screenHeight; // Window width and height in pixels
 uniform float globalTime;
 uniform vec3 eyePos, rayFwd, rayRgt, rayUp, lightPos;
 uniform bool showMarchCount;
+uniform bool showAO;
+
 
 // Ray constants
 const int MAX_MARCHES = 256; // Max number of marches a single ray can do before we give up
@@ -31,7 +33,6 @@ const float INF = 1e5; // Used to represent out-of-bound distances
 const float MAX_DISTANCE = 200.0; // Essentially the far plane distance
 const float RAY_STEP = 0.01; // Initial ray stepping distance to get secondary rays off surfaces
 const float MIN_REFLECTIVITY = 0.01; // Stop bouncing when net reflectivity drops below this proportion
-const float AO_FACTOR = 1.0; // ambient occlusion
 
 // Lighting constants
 const float AMBIENT_TERM = 0.2;
@@ -123,6 +124,20 @@ float detectShadow(Ray shadowRay, float lightDistance) {
 	return shadowFactor;
 }
 
+float ambient_occlusion(vec3 p, vec3 normal) {
+    int samples = 5;
+    float jumpLength;
+    float diff;
+    float ao_factor = 1.0;
+    for (float i = 0; i < samples; i++)  {
+        jumpLength = i * RAY_STEP;
+        diff = jumpLength - sceneSDF(p + normal * jumpLength).distance;
+        ao_factor -= diff * diff/jumpLength;
+    }
+    return clamp(ao_factor, 0.0, 1.0);
+}
+
+
 void main() {
     ivec2 screenCoords = ivec2(gl_GlobalInvocationID.xy);
 
@@ -176,7 +191,10 @@ void main() {
             vec3 materialColour = vec3(m.r, m.g, m.b);
             float specularFactor = m.specularFactor;
 
-            vec3 phong = materialColour * AMBIENT_TERM +
+            float ao = (showAO) ? ambient_occlusion(intersectPos, normal) : 1.0;
+            
+
+            vec3 phong = materialColour * AMBIENT_TERM * ao +
              shadowFactor*lightColour*
              (materialColour * diffuseTerm 
              + specularFactor * specularTerm);

@@ -30,6 +30,7 @@ ShaderProgram raymarchCompProgram, displayProgram;
 Mesh rectangle;
 float rayPlaneDepth = 1.0f, rayPlaneHalfWidth, rayPlaneHalfHeight; // Ray creation parameters. Calculated using screen fov and aspect ratio in the reshape() function
 bool showMarchCount = false;
+bool showAO = false;
 
 void raymarchToTexture(ShaderProgram& computeProgram, GLuint texId) {
     glm::vec3 rayFwd = window::fwd * rayPlaneDepth;
@@ -154,6 +155,11 @@ void keyboard(unsigned char key, int x, int y) {
             showMarchCount = !showMarchCount;
             raymarchCompProgram.setAsActiveProgram();
             glUniform1i(raymarchCompProgram.getUniformLocation("showMarchCount"), showMarchCount);
+            break;
+        case 'l': case 'L':
+            showAO = !showAO;
+            raymarchCompProgram.setAsActiveProgram();
+            glUniform1i(raymarchCompProgram.getUniformLocation("showAO"), showAO);
             break;
         default: window::keyboard(key, x, y);
     }
