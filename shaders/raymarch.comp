@@ -60,6 +60,33 @@ float boxSDF( vec3 p, vec3 b )
   return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
 
+// by Inigo quilez (https://iquilezles.org/articles/distfunctions/)
+float sdBoxFrame( vec3 p, vec3 b, float e )
+{
+       p = abs(p  )-b;
+  vec3 q = abs(p+e)-e;
+  return min(min(
+    length(max(vec3(p.x,q.y,q.z),0.0))+min(max(p.x,max(q.y,q.z)),0.0),
+    length(max(vec3(q.x,p.y,q.z),0.0))+min(max(q.x,max(p.y,q.z)),0.0)),
+    length(max(vec3(q.x,q.y,p.z),0.0))+min(max(q.x,max(q.y,p.z)),0.0));
+}
+
+// by Inigo quilez (https://iquilezles.org/articles/distfunctions/)
+float sdOctahedron( vec3 p, float s )
+{
+  p = abs(p);
+  float m = p.x+p.y+p.z-s;
+  vec3 q;
+       if( 3.0*p.x < m ) q = p.xyz;
+  else if( 3.0*p.y < m ) q = p.yzx;
+  else if( 3.0*p.z < m ) q = p.zxy;
+  else return m*0.57735027;
+    
+  float k = clamp(0.5*(q.z-q.y+s),0.0,s); 
+  return length(vec3(q.x,q.y-s+k,q.z-k)); 
+}
+
+
 // Combines a number of SDF primitives into a scene
 Hit sceneSDF(vec3 position) {
     Hit closestHit = Hit(INF, 0);
@@ -70,6 +97,14 @@ Hit sceneSDF(vec3 position) {
 
     distance = boxSDF(position - vec3(0.0, 0.5, 0.0), vec3(5.0, 0.1, 5.0)); 
     if (distance < closestHit.distance) closestHit = Hit(distance, 1);
+
+    distance = sdBoxFrame(position - vec3(3.0, 1.5, 0.0), vec3(0.5,0.3,0.5), 0.025); 
+    if (distance < closestHit.distance) closestHit = Hit(distance, 2);
+  
+    distance = sdOctahedron(position - vec3(-3.0, 1.5, 0.0), 0.5); 
+    if (distance < closestHit.distance) closestHit = Hit(distance, 3);
+
+
     return closestHit;
 }
 

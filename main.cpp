@@ -99,6 +99,8 @@ void init() {
     materials = {
         {glm::vec3(0.6f, 0.0f, 0.0f), 0.3f, 1.0f}, // Material index 0.  colour, reflective, has strong specular highlight
         {glm::vec3(0.0, 0.600f, 1.0f), 0.4f, 0.5f}, // Material index 1. colour, not reflective, weak specular highlight
+        {glm::vec3(1, 0.643f, 0.0f), 0.0f, 0.0f}, // boxframe
+        {glm::vec3(0.0, 0.800f, 0.094f), 0.6f, 1.0f}, // octahedron
     };
     
     // Create materials SSBO and load material data into it
