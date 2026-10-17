@@ -114,6 +114,21 @@ float sdCutHollowSphere( vec3 p, float r, float h, float t )
                           abs(length(q)-r) ) - t;
 }
 
+// by Inigo quilez (https://iquilezles.org/articles/distfunctions/)
+float sdRoundedCylinder( vec3 p, float ra, float rb, float h )
+{
+  vec2 d = vec2( length(p.xz)-ra+rb, abs(p.y) - h + rb );
+  return min(max(d.x,d.y),0.0) + length(max(d,0.0)) - rb;
+}
+
+// by Inigo quilez (https://iquilezles.org/articles/distfunctions/)
+float sdVerticalCapsule( vec3 p, float h, float r )
+{
+  p.y -= clamp( p.y, 0.0, h );
+  return length( p ) - r;
+}
+
+
 // SDF code below (opRepeat, opDifference, length2, length8, sdCylinder, sdTorus82, de)
 // created by tholzer from https://jbaker.graphics/writings/DEC.html
 #define opRepeat(p,c) (mod(p,c)-0.5*c)
@@ -145,7 +160,7 @@ return opDifference(sdTorus82(pos, vec2(0.20, 0.1)),
                         ,vec3(0.05, 1.0, 0.05))
                 ,vec2(0.02, 0.6)));
 }
-// end of tholzer's code
+// end of tholzer's 
 
 mat2 inverseRotMatrix(float angle) {
     float cosAngle = cos(angle);
@@ -235,8 +250,16 @@ Hit sceneSDF(vec3 position) {
 
 
     // complex shape
-    distance = de(position - vec3(-4, 2, -1));
+    const float scaleFactor = 1.5; 
+    distance = scaleFactor * de((position - vec3(-4, 1.0, -1) )/ scaleFactor);
     if (distance < closestHit.distance) closestHit = newHit(distance, 0);
+
+    distance = sdRoundedCylinder(position - vec3(-4, 0.75, -1), 0.8, 0.05, 0.15);
+    if (distance < closestHit.distance) closestHit = newHit(distance, 0);
+
+    distance = sdVerticalCapsule(position - vec3(-4, 0.9, -1), 0.5, 0.125);
+    if (distance < closestHit.distance) closestHit = newHit(distance, 0);
+
     return closestHit;
     }
 
