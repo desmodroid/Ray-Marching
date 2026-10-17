@@ -36,6 +36,10 @@ const float MAX_DISTANCE = 200.0; // Essentially the far plane distance
 const float RAY_STEP = 0.01; // Initial ray stepping distance to get secondary rays off surfaces
 const float MIN_REFLECTIVITY = 0.01; // Stop bouncing when net reflectivity drops below this proportion
 
+const float VOLUMETRIC_STEP = 0.1;
+vec4 volAcc = vec4(0.0);
+bool renderVolumetric = false;
+
 // Lighting constants
 const float AMBIENT_TERM = 0.2;
 const vec3 lightColour = vec3(0.8, 0.6, 0.4); // Light colour is tinted orange by default
@@ -50,10 +54,11 @@ struct Hit {
     int materialIndex;
     int materialIndex2;
     float t;   
+    vec4 accVolColour;
 };
 
 Hit newHit(float distance, int materialIndex) {
-    return Hit (distance, materialIndex, materialIndex, 0.0);
+    return Hit (distance, materialIndex, materialIndex, materialIndex, vec4(0.0));
 }
 
 // SDF for a sphere with centre c and radius r
@@ -170,10 +175,10 @@ mat2 inverseRotMatrix(float angle) {
 }
 
 vec2 smooth_min(float a, float b, float k) {
-    float u = k - min(abs(a-b), k);
-    float s = u * u / (4*k);
-    float t = (a < b) ? (2.0*s / k) : (1 - (2.0*s/k));
-    return vec2(min(a,b) - s, t);
+    float u = k - min(abs(a - b), k);
+    float s = u * u / (4.0 * k);
+    float t = (a < b) ? (2.0 * s / k) : (1.0 - (2.0 * s/k));
+    return vec2(min(a, b) - s, t);
 }
 
 vec2 smooth_intersection(float a, float b, float k) {
@@ -186,9 +191,16 @@ vec2 smooth_subtraction(float a, float b, float k) {
     return vec2(-r.x, r.y);
 }
 
+float cloudDensity(vec3 p) {
+    float d = sphereSDF(p, vec3(0.0, 4.0, 2.5), 2.0);
+
+    return (d < 0.0) ? 0.5 : 0.0;
+}
+
+
 // Combines a number of SDF primitives into a scene
 Hit sceneSDF(vec3 position) {
-    Hit closestHit = Hit(INF, 0, 0, 0);
+    Hit closestHit = Hit(INF, 0, 0, 0, vec4(0.0));
     float distance;
 
     distance = sphereSDF(position, vec3(0.0, 1.5, 0.0), 1.0);
@@ -246,7 +258,7 @@ Hit sceneSDF(vec3 position) {
         blend = blendGreen;
         matOther = 2;                  // green thingy material
     }
-    if (blend.x < closestHit.distance) closestHit = Hit(blend.x, 3, matOther, blend.y);
+    if (blend.x < closestHit.distance) closestHit = Hit(blend.x, 3, matOther, blend.y, vec4(0.0));
 
 
     // complex shape wheel
@@ -261,6 +273,23 @@ Hit sceneSDF(vec3 position) {
 
     distance = sdVerticalCapsule(position - vec3(-3, 0.9, 5), 0.5, 0.125);
     if (distance < closestHit.distance) closestHit = newHit(distance, 6);
+
+
+    if (renderVolumetric && closestHit.distance > VOLUMETRIC_STEP + EPS) {
+        distance = sphereSDF(position, vec3(0.0, 4.0, 2.5), 2.0);
+        if (distance < 0.0) {
+            if (distance < closestHit.distance) closestHit = newHit(distance, -1);
+        }
+    } else {
+        //inside
+        closestHit.distance = VOLUMETRIC_STEP;
+        closestHit.materialIndex = -1;
+        closestHit.materialIndex2 = -1;
+        closestHit.accVolColour = volAcc;
+
+        float density = 
+    }
+
 
     return closestHit;
 }
@@ -297,7 +326,7 @@ float calculateRoughness(vec3 p, vec3 normal) {
 // a SDF that ever over-estimates distances, you may need to reduce MARCH_PROP to avoid stepping inside the surface
 const float MARCH_PROP = 1.0;
 Hit intersection(Ray ray) {
-    Hit hit = Hit(INF, 0, 0, 0);
+    Hit hit = Hit(INF, 0, 0, 0, vec4(0.0));
     float totalDistance = RAY_STEP;
     int i = 0;
 	for (; i < MAX_MARCHES && totalDistance < MAX_DISTANCE && hit.distance > EPS; i++) {
@@ -313,7 +342,7 @@ Hit intersection(Ray ray) {
 
 // Calculates a shadow factor of 0.0 to 1.0. Only does hard shadows by default
 float detectShadow(Ray shadowRay, float lightDistance) {
-    Hit hit = Hit(INF, 0, 0, 0);
+    Hit hit = Hit(INF, 0, 0, 0, vec4(0.0));
 	float totalDistance = RAY_STEP;
     float shadowFactor = 1.0;
     const float k = 16.0;
