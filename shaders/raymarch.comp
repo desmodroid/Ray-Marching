@@ -277,6 +277,21 @@ vec3 getNormal(vec3 p, float delta) {
 		e.xxx * sceneSDF(p + e.xxx).distance);
 }
 
+float calculateRoughness(vec3 p, vec3 normal) {
+    vec3 up = (abs(normal.y) < 0.99) ? vec3(0, 1, 0) : vec3(1, 0, 0);
+    vec3 t1 = normalize(cross(normal, up));
+    vec3 t2 = normalize(cross(normal, t1));
+    float r = 0.02;
+
+    float d = abs(sceneSDF(p + t1 * r).distance)
+            + abs(sceneSDF(p - t1 * r).distance)
+            + abs(sceneSDF(p + t2 * r).distance)
+            + abs(sceneSDF(p - t2 * r).distance);
+
+    return clamp(d / (2.0 * r), 0.0, 1.0);
+}
+
+
 // March a ray to find distance value of intersection. Returns distance of INF if no intersection found
 //
 // MARCH_PROP = 1.0 is fine for SDFs that are properly defined or only under-estimate distances. If you are using
@@ -384,6 +399,18 @@ void main() {
             vec3 materialColour  = mix(vec3(m1.r, m1.g, m1.b), vec3(m2.r, m2.g, m2.b), hit.t);
             float specularFactor = mix(m1.specularFactor, m2.specularFactor, hit.t);
             float reflectivity   = mix(m1.reflectivity,   m2.reflectivity,   hit.t);
+
+
+            if (hit.materialIndex == 4) {
+                float roughness = calculateRoughness(intersectPos, normal);
+
+                vec3 colour1 = vec3(0.85, 0.65, 0.13); // gold
+                vec3 colour2 = vec3(0.4, 0.13, 0.015); // brown
+
+                materialColour = mix(colour1, colour2, roughness);
+                reflectivity = mix(0.5, 0.0, roughness);
+            }
+
             float ao = (showAO) ? ambient_occlusion(intersectPos, normal) : 1.0;
             
 
