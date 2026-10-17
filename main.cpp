@@ -122,6 +122,10 @@ void init() {
         {glm::vec3(0.0, 0.600f, 1.0f), 0.4f, 0.5f}, // Material index 1. colour, not reflective, weak specular highlight
         {glm::vec3(1, 0.643f, 0.0f), 0.0f, 0.0f}, // boxframe
         {glm::vec3(0.0, 0.800f, 0.094f), 0.6f, 1.0f}, // octahedron
+
+        {glm::vec3(0.85f, 0.65f, 0.13f), 0.2f, 1.0f}, // wheel gold
+        {glm::vec3(0.25f, 0.25f, 0.28f), 0.0f, 0.2f}, // base dark grey
+        {glm::vec3(0.75f, 0.75f, 0.80f), 0.0f, 0.8f}, // capsule silver
     };
     
     // Create materials SSBO and load material data into it
