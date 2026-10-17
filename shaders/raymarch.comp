@@ -114,6 +114,39 @@ float sdCutHollowSphere( vec3 p, float r, float h, float t )
                           abs(length(q)-r) ) - t;
 }
 
+// SDF code below (opRepeat, opDifference, length2, length8, sdCylinder, sdTorus82, de)
+// created by tholzer from https://jbaker.graphics/writings/DEC.html
+#define opRepeat(p,c) (mod(p,c)-0.5*c)
+#define opDifference(a,b) max(a,-b)
+
+float length2( vec2 p ) {
+return sqrt( p.x*p.x + p.y*p.y );
+}
+float length8( vec2 p ) {
+p = p*p; p = p*p; p = p*p;
+return pow( p.x + p.y, 1.0/8.0 );
+}
+
+float sdCylinder (in vec3 p, in vec2 h ){
+vec2 d = abs(vec2(length(p.xz), p.y)) - h;
+return min(max(d.x, d.y), 0.0) + length(max(d, 0.0)); }
+
+
+float sdTorus82( vec3 p, vec2 t ){
+vec2 q = vec2(length2(p.xz)-t.x, p.y);
+return length8(q) - t.y;
+}
+
+float de( in vec3 pos){
+return opDifference(sdTorus82(pos, vec2(0.20, 0.1)),
+    sdCylinder (opRepeat (vec3 (atan(pos.x, pos.z)/6.2831
+                                ,pos.y
+                                ,0.02+0.5*length(pos))
+                        ,vec3(0.05, 1.0, 0.05))
+                ,vec2(0.02, 0.6)));
+}
+// end of tholzer's code
+
 mat2 inverseRotMatrix(float angle) {
     float cosAngle = cos(angle);
     float sinAngle = sin(angle);
@@ -200,7 +233,10 @@ Hit sceneSDF(vec3 position) {
     }
     if (blend.x < closestHit.distance) closestHit = Hit(blend.x, 3, matOther, blend.y);
 
-        
+
+    // complex shape
+    distance = de(position - vec3(-4, 2, -1));
+    if (distance < closestHit.distance) closestHit = newHit(distance, 0);
     return closestHit;
     }
 
