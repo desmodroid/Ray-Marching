@@ -22,6 +22,7 @@ const int POLL_DELAY = 33; // In milliseconds. Set to 30FPS by default, decrease
 const int WORKGROUP_DIM = 16; // Must match compute shader x and y dimension
 float globalTime = 0.0f; // In seconds
 float cubeAngle = 0.0f;
+float wheelAngle = 0.0f;
 const float ROT_SCALE = 0.05f;
 
 std::unordered_map<std::string, Texture> textures;
@@ -47,6 +48,8 @@ void raymarchToTexture(ShaderProgram& computeProgram, GLuint texId) {
 
     glUniform1f(computeProgram.getUniformLocation("globalTime"), globalTime);
     glUniform1f(computeProgram.getUniformLocation("cubeAngle"), cubeAngle);
+    glUniform1f(computeProgram.getUniformLocation("wheelAngle"), wheelAngle);
+
     // Bind material SSBO to index 0 (binding = 0 in shader)
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, materialSSBO);
 
@@ -158,6 +161,7 @@ void update(int value) {
 	if (!window::paused)  {
         globalTime += 0.001f * POLL_DELAY;
         cubeAngle += ROT_SCALE * POLL_DELAY;
+        wheelAngle += ROT_SCALE * POLL_DELAY;
     }
 	window::updateUserPosition(POLL_DELAY); // Updates user position and view transform based on keyboard/mouse inputs
 }

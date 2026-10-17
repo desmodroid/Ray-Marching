@@ -24,6 +24,7 @@ uniform bool showMarchCount;
 uniform bool showAO;
 uniform float cubeAngle;
 uniform samplerCube skyTexture;
+uniform float wheelAngle;
 
 // Ray constants
 const int MAX_MARCHES = 256; // Max number of marches a single ray can do before we give up
@@ -251,7 +252,9 @@ Hit sceneSDF(vec3 position) {
 
     // complex shape
     const float scaleFactor = 1.5; 
-    distance = scaleFactor * de((position - vec3(-4, 1.0, -1) )/ scaleFactor);
+    vec3 wheelPos = position - vec3(-4, 1.0, -1);
+    wheelPos.zx = inverseRotMatrix(wheelAngle) * wheelPos.zx;
+    distance = scaleFactor * de((wheelPos)/ scaleFactor);
     if (distance < closestHit.distance) closestHit = newHit(distance, 4);
 
     distance = sdRoundedCylinder(position - vec3(-4, 0.75, -1), 0.8, 0.05, 0.15);
