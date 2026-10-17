@@ -33,6 +33,7 @@ Mesh rectangle;
 float rayPlaneDepth = 1.0f, rayPlaneHalfWidth, rayPlaneHalfHeight; // Ray creation parameters. Calculated using screen fov and aspect ratio in the reshape() function
 bool showMarchCount = false;
 bool showAO = false;
+CubemapTexture skyTexture;
 
 void raymarchToTexture(ShaderProgram& computeProgram, GLuint texId) {
     glm::vec3 rayFwd = window::fwd * rayPlaneDepth;
@@ -97,6 +98,23 @@ void init() {
     });
     raymarchCompProgram.setAsActiveProgram();
     glUniform1i(raymarchCompProgram.getUniformLocation("showMarchCount"), showMarchCount); // Set program not to visualize march count by default
+
+    skyTexture = CubemapTexture({
+        "../assets/autumn_field_puresky/px.png",
+        "../assets/autumn_field_puresky/nx.png",
+        "../assets/autumn_field_puresky/ny.png",
+        "../assets/autumn_field_puresky/py.png",
+        "../assets/autumn_field_puresky/pz.png",
+        "../assets/autumn_field_puresky/nz.png",
+    });
+
+    glUniform1i(raymarchCompProgram.getUniformLocation("skyTexture"), 1);
+    glActiveTexture(GL_TEXTURE1);
+    skyTexture.bind();
+    glActiveTexture(GL_TEXTURE0);
+
+
+
 
     // Initialize material data
     materials = {

@@ -23,6 +23,7 @@ uniform vec3 eyePos, rayFwd, rayRgt, rayUp, lightPos;
 uniform bool showMarchCount;
 uniform bool showAO;
 uniform float cubeAngle;
+uniform samplerCube skyTexture;
 
 // Ray constants
 const int MAX_MARCHES = 256; // Max number of marches a single ray can do before we give up
@@ -44,7 +45,7 @@ struct Ray {
 };
 
 struct Hit {
-    float distance;
+    float distance; 
     int materialIndex;
     int materialIndex2;
     float t;   
@@ -290,7 +291,7 @@ void main() {
         }
         
         if (hit.distance > MAX_DISTANCE) {
-            const vec3 backgroundColour = vec3(0.8, 0.9, 1.0);
+            const vec3 backgroundColour = texture(skyTexture, ray.direction).rgb;
             colour += netReflectivity*backgroundColour;
             netReflectivity = 0.0;
         } else {
