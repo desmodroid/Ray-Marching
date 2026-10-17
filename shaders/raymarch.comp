@@ -191,7 +191,7 @@ Hit sceneSDF(vec3 position) {
     Hit closestHit = Hit(INF, 0, 0, 0);
     float distance;
 
-    distance = sphereSDF(position, vec3(0.0, 1.5, 1.0), 1.0);
+    distance = sphereSDF(position, vec3(0.0, 1.5, 0.0), 1.0);
     if (distance < closestHit.distance) closestHit = newHit(distance, 0);
 
 
@@ -205,9 +205,18 @@ Hit sceneSDF(vec3 position) {
     );
     if (distance < closestHit.distance) closestHit = newHit(distance, 2);
 
+    // some weird thingy
+    vec3 idekPos = vec3(-3, 1.5, 0.0);
+    float thingy = max(
+        sdHexPrism(position - idekPos, vec2(0.5, 0.3)),
+        sdCutHollowSphere(position - idekPos, 0.5, 0.2, 0.01)
+    );
+    if (thingy < closestHit.distance) closestHit = newHit(thingy, 4);
+    
 
 
-    // --------------- this is the weird rotating cut box thingy -------------------
+    // ---------------- rotating box and octahedron --------------------------------
+
     vec3 stillBox = position - vec3(3, 1.5, 5.0);   // still box
     vec3 cutBox = stillBox;                        // rotating box
     cutBox.zx = inverseRotMatrix(cubeAngle) * cutBox.zx;
@@ -219,8 +228,6 @@ Hit sceneSDF(vec3 position) {
     if (boxThing < closestHit.distance) closestHit = newHit(boxThing, 2);
 
 
-    // ---------------- octahedron and weird shape thingy --------------------------------
-
     float y = 1.5 * cos(globalTime); 
     float octahedron = sdOctahedron(position - vec3(3.0, 2 + y, 5.0), 0.5);
     if (octahedron < closestHit.distance) closestHit = newHit(octahedron, 3);
@@ -229,14 +236,6 @@ Hit sceneSDF(vec3 position) {
     float plane = boxSDF(position - vec3(0.0, 0.5, 0.0), vec3(10.0, 0.1, 10.0)); 
     if (plane < closestHit.distance) closestHit = newHit(plane, 1);
 
-    // some weird green thingy, im sorry if everything is messy
-    vec3 idekPos = vec3(-3, 1.5, 5.0);
-    float greenThingy = max(
-        sdHexPrism(position - idekPos, vec2(0.5, 0.3)),
-        sdCutHollowSphere(position - idekPos, 0.5, 0.2, 0.01)
-    );
-    if (greenThingy < closestHit.distance) closestHit = newHit(greenThingy, 2);
-    
     
     // blend floor box and oct
     vec2 blendFloor = smooth_min(octahedron, plane, 0.3);
@@ -250,17 +249,17 @@ Hit sceneSDF(vec3 position) {
     if (blend.x < closestHit.distance) closestHit = Hit(blend.x, 3, matOther, blend.y);
 
 
-    // complex shape
+    // complex shape wheel
     const float scaleFactor = 1.5; 
-    vec3 wheelPos = position - vec3(-4, 1.0, -1);
+    vec3 wheelPos = position - vec3(-3, 1.0, 5);
     wheelPos.zx = inverseRotMatrix(wheelAngle) * wheelPos.zx;
     distance = scaleFactor * de((wheelPos)/ scaleFactor);
     if (distance < closestHit.distance) closestHit = newHit(distance, 4);
 
-    distance = sdRoundedCylinder(position - vec3(-4, 0.75, -1), 0.8, 0.05, 0.15);
+    distance = sdRoundedCylinder(position - vec3(-3, 0.75, 5), 0.8, 0.05, 0.15);
     if (distance < closestHit.distance) closestHit = newHit(distance, 5);
 
-    distance = sdVerticalCapsule(position - vec3(-4, 0.9, -1), 0.5, 0.125);
+    distance = sdVerticalCapsule(position - vec3(-3, 0.9, 5), 0.5, 0.125);
     if (distance < closestHit.distance) closestHit = newHit(distance, 6);
 
     return closestHit;
