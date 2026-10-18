@@ -232,7 +232,7 @@ vec2 smooth_subtraction(float a, float b, float k) {
 }
 
 float cloudDensity(vec3 p) {
-    float density = max(-sphereSDF(p, vec3(0.0, 4.0, 2.5), 2.0), 0.0);
+    float density = max(-sphereSDF(p, vec3(0.0, 6.0, 2.5), 2.0), 0.0);
     return max(density + fbm(p), 0.0);
 }
 
@@ -314,7 +314,7 @@ Hit sceneSDF(vec3 position) {
 
 
     if (renderVolumetric && closestHit.distance > VOLUMETRIC_STEP + EPS) {
-        distance = sphereSDF(position, vec3(0.0, 4.0, 2.5), 2.0);
+        distance = sphereSDF(position, vec3(0.0, 6.0, 2.5), 2.0);
         
         if (distance > EPS) {
             if (distance < closestHit.distance) closestHit = newHit(distance, -1);
