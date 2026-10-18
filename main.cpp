@@ -37,7 +37,7 @@ float rayPlaneDepth = 1.0f, rayPlaneHalfWidth, rayPlaneHalfHeight; // Ray creati
 bool showMarchCount = false;
 bool showAO = false;
 CubemapTexture skyTexture;
-GLuint noiseTextureId;
+Texture noiseTexture;
 void raymarchToTexture(ShaderProgram& computeProgram, GLuint texId) {
     glm::vec3 rayFwd = window::fwd * rayPlaneDepth;
     glm::vec3 rayRgt = window::rgt * rayPlaneHalfWidth;
@@ -122,9 +122,10 @@ void init() {
     std::vector<unsigned char> noiseData(256 * 256);
     for (auto& v : noiseData) v = rand() % 256;
 
-    glGenTextures(1, &noiseTextureId);
+
     glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, noiseTextureId);
+    noiseTexture = Texture(noiseData, GL_REPEAT, 256, 265, 1);
+    noiseTexture.bind();
     glUniform1i(raymarchCompProgram.getUniformLocation("noiseTexture"), 2);
     glActiveTexture(GL_TEXTURE0);
 
