@@ -25,6 +25,7 @@ uniform bool showAO;
 uniform float cubeAngle;
 uniform samplerCube skyTexture;
 uniform float wheelAngle;
+uniform sampler2D noiseTexture;
 
 // Ray constants
 const int MAX_MARCHES = 256; // Max number of marches a single ray can do before we give up
@@ -60,6 +61,45 @@ struct Hit {
 Hit newHit(float distance, int materialIndex) {
     return Hit (distance, materialIndex, materialIndex, 0.0, vec4(0.0));
 }
+
+
+const float resolution = 256.0; // Resolution of noise texture
+const vec2 offset = vec2(37.0, 239.0); // Prime numbers for offset
+float noise(vec3 p) {
+    // Texel index:
+    vec3 cellIndex = floor(p);
+    // Normalized coords within texel:
+    vec3 cellInternalPos = smoothstep(0.0, 1.0, fract(p));
+
+    vec2 pixelCoord = (cellIndex.xy + offset*cellIndex.z) + cellInternalPos.xy;
+    // Sample once at floor(z) value. Add 0.5 to target middle of texel
+    float z1 = textureLod(noiseTexture, (pixelCoord+0.5)/resolution, 0.0).r;
+    // Sample another time at ceil(z) value
+    float z2 = textureLod(noiseTexture, (pixelCoord+offset+0.5)/resolution, 0.0).r;
+
+    // Mix the two samples using the normalized z value within texel
+    return mix(z1, z2, cellInternalPos.z) * 2.0 - 1.0;
+}
+
+
+float fbm(vec3 p) {
+    // Translate based on current time
+    vec3 q = p + globalTime * 0.5 * vec3(1.0, -0.2, -1.0);
+    float total = 0.0; // Accumulated noise value
+    float amplitude = 0.5;
+    float freq = 2.02;
+
+
+    for (int i = 0; i < 6; i++) {
+        total += amplitude * noise(q);
+        q *= freq; // Each octave has a different position
+        freq += 0.21; // Increase frequency
+        amplitude *= 0.5; // Decrease amplitude
+    }
+    return total;
+}
+
+
 
 // SDF for a sphere with centre c and radius r
 float sphereSDF(vec3 p, vec3 c, float r) {
@@ -192,7 +232,8 @@ vec2 smooth_subtraction(float a, float b, float k) {
 }
 
 float cloudDensity(vec3 p) {
-    return max(-sphereSDF(p, vec3(0.0, 4.0, 2.5), 2.0), 0.0);
+    float density = max(-sphereSDF(p, vec3(0.0, 4.0, 2.5), 2.0), 0.0);
+    return max(density + fbm(p), 0.0);
 }
 
 // Combines a number of SDF primitives into a scene
