@@ -58,7 +58,7 @@ struct Hit {
 };
 
 Hit newHit(float distance, int materialIndex) {
-    return Hit (distance, materialIndex, materialIndex, materialIndex, vec4(0.0));
+    return Hit (distance, materialIndex, materialIndex, 0.0, vec4(0.0));
 }
 
 // SDF for a sphere with centre c and radius r
@@ -192,11 +192,8 @@ vec2 smooth_subtraction(float a, float b, float k) {
 }
 
 float cloudDensity(vec3 p) {
-    float d = sphereSDF(p, vec3(0.0, 4.0, 2.5), 2.0);
-
-    return (d < 0.0) ? 0.5 : 0.0;
+    return max(-sphereSDF(p, vec3(0.0, 4.0, 2.5), 2.0), 0.0);
 }
-
 
 // Combines a number of SDF primitives into a scene
 Hit sceneSDF(vec3 position) {
@@ -277,19 +274,28 @@ Hit sceneSDF(vec3 position) {
 
     if (renderVolumetric && closestHit.distance > VOLUMETRIC_STEP + EPS) {
         distance = sphereSDF(position, vec3(0.0, 4.0, 2.5), 2.0);
-        if (distance < 0.0) {
+        
+        if (distance > EPS) {
             if (distance < closestHit.distance) closestHit = newHit(distance, -1);
+        } else {
+            //inside
+            closestHit.distance = VOLUMETRIC_STEP;
+            closestHit.materialIndex = -1;
+            closestHit.materialIndex2 = -1;
+            closestHit.accVolColour = volAcc;
+
+            float density = cloudDensity(position);
+            if (density > 0.0) {
+                vec3 lightDirection = normalize(lightPos - position);
+                float diffuse = clamp((density - cloudDensity(position + lightDirection * 0.25)) / 0.25, 0.0, 1.0);
+
+                vec3 rampColour = vec3(0.5, 0.5, 0.5) + lightColour * diffuse;
+                vec4 colour = vec4(rampColour, 1.0) * density * VOLUMETRIC_STEP * 12.0;
+                closestHit.accVolColour += colour * (1.1 - closestHit.accVolColour.a);
+            }
+            volAcc = closestHit.accVolColour;
         }
-    } else {
-        //inside
-        closestHit.distance = VOLUMETRIC_STEP;
-        closestHit.materialIndex = -1;
-        closestHit.materialIndex2 = -1;
-        closestHit.accVolColour = volAcc;
-
-        float density = 
     }
-
 
     return closestHit;
 }
@@ -329,13 +335,17 @@ Hit intersection(Ray ray) {
     Hit hit = Hit(INF, 0, 0, 0, vec4(0.0));
     float totalDistance = RAY_STEP;
     int i = 0;
-	for (; i < MAX_MARCHES && totalDistance < MAX_DISTANCE && hit.distance > EPS; i++) {
+    volAcc = vec4(0.0);
+    renderVolumetric = true;
+	for (; i < MAX_MARCHES && totalDistance < MAX_DISTANCE && hit.distance > EPS && volAcc.a < 1.0; i++) {
 		hit = sceneSDF(ray.position + totalDistance*ray.direction);
 		totalDistance += hit.distance*MARCH_PROP;
 	}
+    renderVolumetric = false;
+
     if (hit.distance <= EPS || (i == MAX_MARCHES && hit.distance <= INTERSECT_JUMP)) hit.distance = totalDistance;
     else hit.distance = INF; // we were not close to anything
-
+    hit.accVolColour = volAcc;
     if (showMarchCount) hit.distance = float(i)/MAX_MARCHES;
 	return hit;
 }
@@ -346,17 +356,23 @@ float detectShadow(Ray shadowRay, float lightDistance) {
 	float totalDistance = RAY_STEP;
     float shadowFactor = 1.0;
     const float k = 16.0;
+    volAcc = vec4(0.0);
+    renderVolumetric = true;
     
-	for (int i = 0; i < MAX_MARCHES && totalDistance < lightDistance && hit.distance > EPS; i++) {
+	for (int i = 0; i < MAX_MARCHES && totalDistance < lightDistance && hit.distance > EPS && volAcc.a < 1.0; i++) {
 		hit = sceneSDF(shadowRay.position + totalDistance*shadowRay.direction);
 
 		//Soft shadows: Could calculate soft shadowing factor here
         shadowFactor = min(shadowFactor, k * hit.distance / totalDistance);
 
 
-		totalDistance += hit.distance;
-	}
-    if (hit.distance <= EPS) shadowFactor = 0.0; // fully occluded
+        totalDistance += hit.distance;
+    }
+
+    renderVolumetric = false;
+    if (hit.distance <= EPS && hit.materialIndex != -1) shadowFactor = 0.0;
+
+    shadowFactor *= 1.0 - clamp(volAcc.a, 0.0, 1.0); 
 	return shadowFactor;
 }
 
@@ -395,9 +411,13 @@ void main() {
             break;
         }
         
-        if (hit.distance > MAX_DISTANCE) {
+        vec4 vol = hit.accVolColour;
+        float transparency = 1.0 - vol.a;
+
+
+        if (hit.distance > MAX_DISTANCE || hit.materialIndex == -1) {
             const vec3 backgroundColour = texture(skyTexture, ray.direction).rgb;
-            colour += netReflectivity*backgroundColour;
+            colour += netReflectivity * (vol.rgb + transparency * backgroundColour);
             netReflectivity = 0.0;
         } else {
             vec3 intersectPos = ray.position + hit.distance*ray.direction;
@@ -447,11 +467,10 @@ void main() {
              (materialColour * diffuseTerm 
              + specularFactor * specularTerm);
 
-            colour += netReflectivity * phong;
-            
-            // Reflections: Could multiply netReflectivity by material reflectivity here instead
-            netReflectivity *= reflectivity;
+            colour += netReflectivity * (vol.rgb + transparency * phong);
 
+            // Reflections: Could multiply netReflectivity by material reflectivity here instead
+            netReflectivity *= reflectivity * transparency;
             if (netReflectivity > MIN_REFLECTIVITY) {
                 vec3 r = reflect(ray.direction, normal);
                 ray = Ray(intersectPos, r);
